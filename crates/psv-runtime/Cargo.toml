@@ -1,0 +1,23 @@
+[package]
+name = "psv-runtime"
+description = "The executable that runs on the PlayStation Vita"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/SSMG64/MCJavaPSV"
+publish = false
+
+[workspace]
+
+[dependencies]
+horizon-core = { git = "https://github.com/ludovic111/horizon", rev = "02c8607ee8ebd216f2f535c1eb7b62b572830df2" }
+horizon-world = { git = "https://github.com/ludovic111/horizon", rev = "02c8607ee8ebd216f2f535c1eb7b62b572830df2" }
+
+[package.metadata.vita]
+title_id = "MCJVPSV01"
+title_name = "MCJavaPSV"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1

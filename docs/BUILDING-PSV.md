@@ -1,0 +1,80 @@
+# Building the Vita executable
+
+Players do not need this: releases ship a prebuilt `eboot.bin` made by CI, and the Windows app
+only packs the VPK. Follow this guide to work on the Vita code, or to build the executable
+yourself.
+
+> **Status.** The commands below follow the VitaSDK and `cargo-vita` documentation. This
+> project's own Vita build has not been run yet, so expect to adjust. The first CI run of the
+> `Vita executable` job is the real test. Please report what you find.
+
+## Why it is different
+
+`armv7-sony-vita-newlibeabihf` is a tier 3 Rust target: no prebuilt standard library, nightly
+Rust with `-Z build-std`, VitaSDK's GCC as the linker, and only part of `std`. The Vita crate
+therefore lives outside the main workspace (`crates/psv-runtime`, its own `Cargo.lock`).
+
+## Prerequisites
+
+1. **VitaSDK.** Use the official installer:
+   ```
+   git clone https://github.com/vitasdk/vdpm
+   ./vdpm/bootstrap-vitasdk.sh
+   export VITASDK=/usr/local/vitasdk
+   export PATH="$VITASDK/bin:$PATH"
+   ```
+   On Windows use `bootstrap-vitasdk.ps1`, or WSL. See the [vdpm](https://github.com/vitasdk/vdpm) readme for options such as `--install-dir`.
+2. **Nightly Rust with the standard library sources:**
+   ```
+   rustup toolchain install nightly --component rust-src
+   ```
+3. **cargo-vita:**
+   ```
+   cargo +nightly install cargo-vita --locked
+   ```
+
+## Build
+
+```
+cd crates/psv-runtime
+cargo vita build eboot -- --release
+```
+
+`cargo-vita` links the ELF, runs `vita-elf-create`, then `vita-make-fself`. It prints where it
+wrote `eboot.bin`, under `target/armv7-sony-vita-newlibeabihf/release/`. Do not enable
+`strip` in the profile: stripping removes the relocations the conversion needs.
+
+To try the probe on a console, build a VPK instead:
+
+```
+cargo vita build vpk -- --release
+```
+
+Install it with VitaShell, run it, and read `ux0:data/MCJavaPSV/probe.txt`. A healthy probe
+reports the Horizon target `26.3`, `Random(0).nextInt() = -1155484576 (ok)`, and `snbt parse: ok`.
+
+## Faster iteration
+
+With `vitacompanion` installed on the Vita, `cargo vita build eboot --update --run -- --release`
+uploads and starts the build over FTP, and `cargo vita logs` receives output from PrincessLog.
+Set `VITA_IP` to your console's address.
+
+## Using the result with the Windows app
+
+Copy the `eboot.bin` into the app's `payload` folder, or pass it to `scripts/stage-payload.sh`.
+
+## Settings worth knowing
+
+| Setting | Where | Notes |
+| --- | --- | --- |
+| Heap size | `_newlib_heap_size_user` in `src/main.rs` | 192 MB in the probe, not measured |
+| Memory mode | `ATTRIBUTE2` in `PARAM.SFO` | `psv-vpk` defaults to `12`, as `vita-mksfoex` does |
+| Nightly version | `crates/psv-runtime/rust-toolchain.toml` | Unpinned for now. Pin a date after the first green CI run |
+| Horizon revision | `crates/psv-runtime/Cargo.toml` and `packaging/horizon-rev.txt` | Change both together |
+
+## Distribution notice
+
+A VPK built from the probe contains no Mojang data. Once later phases add data converted from
+your own Minecraft install, the VPK you build contains material derived from your copy. It is
+for your own console only and **you must not distribute it**. Doing so may be copyright
+infringement and a breach of the Minecraft EULA, and you would be the one responsible. See [LEGAL](LEGAL.md).

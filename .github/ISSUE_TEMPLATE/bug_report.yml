@@ -1,0 +1,34 @@
+name: Bug report
+description: Something in the builder or the Vita build does not work
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not attach Minecraft files, jars, or anything from your game folder.
+        Diagnostics exports replace your home folder with `~`, but read the file before you post it: issues are public.
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Shown by the `version` console command
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: Run the `export` console command and paste the file here
+      render: text

@@ -1,0 +1,38 @@
+[package]
+name = "psv-builder"
+description = "Windows app that builds a PS Vita package from the player's own Minecraft install"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[lib]
+name = "psv_builder"
+
+[[bin]]
+name = "mcjavapsv"
+path = "src/bin/mcjavapsv.rs"
+
+[[bin]]
+name = "mcjavapsv-cli"
+path = "src/bin/mcjavapsv-cli.rs"
+
+[dependencies]
+psv-setup = { path = "../psv-setup" }
+psv-vpk = { path = "../psv-vpk" }
+clap = { version = "4", features = ["derive"] }
+dirs = "7"
+eframe = "0.37"
+rfd = "0.16"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-appender = "0.2"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt", "registry", "std"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true
