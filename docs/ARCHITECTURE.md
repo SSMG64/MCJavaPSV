@@ -62,7 +62,8 @@ This project pins one Horizon revision in `packaging/horizon-rev.txt` and uses i
   payload. It turns your own game files into the data Horizon reads.
 - **Logic.** `horizon-core` (only depends on `libm`) and `horizon-world` (depends on
   pure Rust crates and contains no OS specific code) are the candidates to run on the Vita.
-  The probe in `psv-runtime` links them to find out whether they build for the Vita target.
+  The probe in `psv-runtime` links them. The first CI run built that probe for the Vita target, so
+the two crates compile there. Whether they run correctly, and how fast, is untested on hardware.
 
 Horizon's desktop client (`horizon-client`, `horizon-client-render`) is built on wgpu and
 winit, which have no Vita backend, so it cannot run on the Vita as is. The Vita needs its

@@ -4,9 +4,9 @@ Players do not need this: releases ship a prebuilt `eboot.bin` made by CI, and t
 only packs the VPK. Follow this guide to work on the Vita code, or to build the executable
 yourself.
 
-> **Status.** The commands below follow the VitaSDK and `cargo-vita` documentation. This
-> project's own Vita build has not been run yet, so expect to adjust. The first CI run of the
-> `Vita executable` job is the real test. Please report what you find.
+> **Status.** The first CI run built the probe, including Horizon's `horizon-core` and
+> `horizon-world`, for the Vita target with these steps. It has not been run on a console yet,
+> so the memory and speed figures are still unknown.
 
 ## Why it is different
 
@@ -40,9 +40,11 @@ cd crates/psv-runtime
 cargo vita build eboot -- --release
 ```
 
-`cargo-vita` links the ELF, runs `vita-elf-create`, then `vita-make-fself`. It prints where it
-wrote `eboot.bin`, under `target/armv7-sony-vita-newlibeabihf/release/`. Do not enable
-`strip` in the profile: stripping removes the relocations the conversion needs.
+`cargo-vita` links the ELF, runs `vita-elf-create`, then `vita-make-fself`. The result is
+`target/armv7-sony-vita-newlibeabihf/release/psv-runtime.self`: that file is the eboot. It is only
+renamed to `eboot.bin` when a package is built or uploaded, so copy it under that name yourself
+(CI does the same). Do not set `strip` in the Cargo profile: `cargo-vita` has its own optional
+strip step.
 
 To try the probe on a console, build a VPK instead:
 
