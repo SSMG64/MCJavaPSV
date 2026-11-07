@@ -6,6 +6,7 @@ pub mod commands;
 pub mod diagnostics;
 pub mod jobs;
 pub mod logging;
+pub mod pack;
 pub mod paths;
 pub mod payload;
 pub mod settings;

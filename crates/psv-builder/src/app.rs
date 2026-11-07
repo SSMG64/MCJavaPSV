@@ -39,6 +39,7 @@ struct Fields {
     minecraft_dir: String,
     server_jar: String,
     java_home: String,
+    output_dir: String,
 }
 
 struct Filters {
@@ -97,6 +98,7 @@ impl App {
                 minecraft_dir: path_text(&saved.minecraft_dir),
                 server_jar: path_text(&saved.server_jar),
                 java_home: path_text(&saved.java_home),
+                output_dir: path_text(&saved.output_dir),
             },
             saved,
             paths,
@@ -128,7 +130,7 @@ impl App {
             minecraft_dir: text_path(&self.fields.minecraft_dir),
             server_jar: text_path(&self.fields.server_jar),
             java_home: text_path(&self.fields.java_home),
-            output_dir: self.saved.output_dir.clone(),
+            output_dir: text_path(&self.fields.output_dir),
         }
     }
 
@@ -183,6 +185,21 @@ impl App {
         ));
     }
 
+    fn start_pack_probe(&mut self) {
+        if self.busy() {
+            tracing::warn!(target: "ui", "a job is already running");
+            return;
+        }
+        let Some(output_dir) = text_path(&self.fields.output_dir) else {
+            self.status = "Choose an output folder first".to_owned();
+            tracing::warn!(target: "ui", "no output folder chosen");
+            return;
+        };
+        self.persist_if_changed();
+        self.status = "Building the probe package".to_owned();
+        self.job = Some(jobs::spawn_pack_probe(output_dir, self.payload.clone()));
+    }
+
     fn poll_job(&mut self) {
         let Some(job) = &self.job else {
             return;
@@ -219,6 +236,7 @@ impl App {
             Command::Clear => self.console.clear(),
             Command::Check => self.start_check(),
             Command::Prepare => self.start_prepare(),
+            Command::Pack => self.start_pack_probe(),
             Command::Cancel => match &self.job {
                 Some(job) => {
                     job.request_cancel();
@@ -292,12 +310,13 @@ impl App {
 
     fn main_ui(&mut self, ui: &mut egui::Ui) {
         ui.heading("MCJavaPSV Builder");
-        ui.label("Phase 0: check your setup and prepare your game data. Building the VPK arrives in a later phase.");
+        ui.label("Check your setup, prepare your game data, or build a probe package to try the Vita executable. The full VPK arrives in a later phase.");
         ui.add_space(8.0);
 
         let mut browse_minecraft = false;
         let mut browse_server = false;
         let mut browse_java = false;
+        let mut browse_output = false;
         egui::Grid::new("setup")
             .num_columns(3)
             .spacing([8.0, 6.0])
@@ -323,6 +342,13 @@ impl App {
                     &mut self.fields.java_home,
                 )
                 .is_some();
+                browse_output = Self::path_row(
+                    ui,
+                    "Output folder",
+                    "where finished packages are written",
+                    &mut self.fields.output_dir,
+                )
+                .is_some();
             });
 
         if browse_minecraft && let Some(dir) = rfd::FileDialog::new().pick_folder() {
@@ -337,6 +363,10 @@ impl App {
         }
         if browse_java && let Some(dir) = rfd::FileDialog::new().pick_folder() {
             self.fields.java_home = dir.display().to_string();
+        }
+
+        if browse_output && let Some(dir) = rfd::FileDialog::new().pick_folder() {
+            self.fields.output_dir = dir.display().to_string();
         }
 
         ui.add_space(8.0);
@@ -362,6 +392,13 @@ impl App {
                 && let Some(job) = &self.job
             {
                 job.request_cancel();
+            }
+            if ui
+                .add_enabled(!self.busy(), egui::Button::new("Build probe VPK"))
+                .on_hover_text("A test package with no Minecraft data, to try the Vita executable")
+                .clicked()
+            {
+                self.start_pack_probe();
             }
             ui.add_enabled(false, egui::Button::new("Build VPK"))
                 .on_disabled_hover_text("Available in a later phase");

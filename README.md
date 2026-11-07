@@ -2,9 +2,10 @@
 
 An effort to run Minecraft: Java Edition 26.3 on the PlayStation Vita, written in Rust.
 
-> **Status: Phase 0, foundation only. Nothing playable exists yet.**
-> The Windows builder checks your setup and prepares your game data. The Vita
-> executable is a probe. See [the roadmap](docs/ARCHITECTURE.md#roadmap) for what comes next.
+> **Status: Phase 1, measuring the hardware. Nothing playable exists yet.**
+> The Windows builder checks your setup, prepares your game data and can build a probe
+> package. The Vita executable is a probe that measures what the console can do. See
+> [the roadmap](docs/ARCHITECTURE.md#roadmap) for what comes next.
 
 ## How it works
 
@@ -31,7 +32,8 @@ speed on Vita hardware is the open question, and it is measured, not assumed.
 3. Download the 26.3 server jar from the official Minecraft website.
 4. Run `mcjavapsv.exe`, pick the three paths, press **Check setup**, then **Prepare game data**.
 
-Full steps are in [USAGE](docs/USAGE.md).
+Full steps are in [USAGE](docs/USAGE.md). To try the Vita executable without any game files, see
+[Try the probe on a Vita](docs/USAGE.md#try-the-probe-on-a-vita).
 
 ## Repository layout
 

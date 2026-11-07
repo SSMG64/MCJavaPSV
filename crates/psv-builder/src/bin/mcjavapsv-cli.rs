@@ -44,6 +44,12 @@ enum Cmd {
     Check(Sources),
     /// Run Horizon's preparer on your own game files
     Prepare(Sources),
+    /// Build the probe VPK (no Minecraft data) from the bundled eboot.bin
+    PackProbe {
+        /// Folder for the package (default: the saved output folder, else the current folder)
+        #[arg(long)]
+        output_dir: Option<PathBuf>,
+    },
     /// Print the detected setup and system details
     Env(Sources),
     /// Print where the log files are kept
@@ -78,6 +84,22 @@ fn main() -> ExitCode {
                 ExitCode::SUCCESS
             } else {
                 ExitCode::FAILURE
+            }
+        }
+        Cmd::PackProbe { output_dir } => {
+            let saved = Settings::load(&paths.settings_file());
+            let output_dir = output_dir
+                .or(saved.output_dir)
+                .unwrap_or_else(|| PathBuf::from("."));
+            match psv_builder::pack::build_probe_vpk(&payload.eboot(), &output_dir) {
+                Ok(path) => {
+                    println!("{}", path.display());
+                    ExitCode::SUCCESS
+                }
+                Err(error) => {
+                    tracing::error!("{error}");
+                    ExitCode::FAILURE
+                }
             }
         }
         Cmd::Env(sources) => {

@@ -27,6 +27,8 @@ pub enum VpkError {
     Zip(#[from] zip::result::ZipError),
     #[error("could not write the package: {0}")]
     Io(#[from] io::Error),
+    #[error("could not encode an image: {0}")]
+    Image(#[from] png::EncodingError),
 }
 
 #[derive(Debug)]

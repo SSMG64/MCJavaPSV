@@ -8,6 +8,7 @@ use psv_setup::minecraft::TARGET_VERSION;
 use psv_setup::prepare::{self, Event, PrepareRequest};
 use psv_setup::report::{self, Check, Inputs, Status};
 
+use crate::pack;
 use crate::paths::AppPaths;
 use crate::payload::Payload;
 
@@ -73,6 +74,14 @@ pub fn spawn_prepare(inputs: Inputs, paths: AppPaths, payload: Payload) -> JobHa
         };
         prepare_blocking(&inputs, &paths, &payload, cancel, progress)
             .map(|output| format!("game data prepared in {}", output.display()))
+            .map_err(|error| error.to_string())
+    })
+}
+
+pub fn spawn_pack_probe(output_dir: PathBuf, payload: Payload) -> JobHandle {
+    spawn("pack", move |_sender, _cancel| {
+        pack::build_probe_vpk(&payload.eboot(), &output_dir)
+            .map(|path| format!("probe package written to {}", path.display()))
             .map_err(|error| error.to_string())
     })
 }

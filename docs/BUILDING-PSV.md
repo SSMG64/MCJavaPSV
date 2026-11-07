@@ -46,14 +46,18 @@ renamed to `eboot.bin` when a package is built or uploaded, so copy it under tha
 (CI does the same). Do not set `strip` in the Cargo profile: `cargo-vita` has its own optional
 strip step.
 
-To try the probe on a console, build a VPK instead:
+To try the probe on a console, put the `eboot.bin` in the app's `payload` folder and run
+`mcjavapsv-cli pack-probe`, or build a VPK directly:
 
 ```
 cargo vita build vpk -- --release
 ```
 
-Install it with VitaShell, run it, and read `ux0:data/MCJavaPSV/probe.txt`. A healthy probe
-reports the Horizon target `26.3`, `Random(0).nextInt() = -1155484576 (ok)`, and `snbt parse: ok`.
+Install it with VitaShell, run it, and read `ux0:data/MCJavaPSV/probe.txt`. [USAGE](USAGE.md#try-the-probe-on-a-vita)
+explains every line. CI also publishes the finished package as the `probe-vpk` artifact.
+
+The probe's logic lives in `crates/psv-runtime/src/probe.rs` and runs on the host too:
+`cargo test` in that folder checks the report format and the recorded noise checksum.
 
 ## Faster iteration
 
@@ -69,7 +73,7 @@ Copy the `eboot.bin` into the app's `payload` folder, or pass it to `scripts/sta
 
 | Setting | Where | Notes |
 | --- | --- | --- |
-| Heap size | `_newlib_heap_size_user` in `src/main.rs` | 192 MB in the probe, not measured |
+| Heap size | `HEAP_MIB` in `src/main.rs` | 192 MiB in the probe. The probe reports how much the console really grants |
 | Memory mode | `ATTRIBUTE2` in `PARAM.SFO` | `psv-vpk` defaults to `12`, as `vita-mksfoex` does |
 | Nightly version | `crates/psv-runtime/rust-toolchain.toml` | Unpinned for now. Pin a date after the first green CI run |
 | Horizon revision | `crates/psv-runtime/Cargo.toml` and `packaging/horizon-rev.txt` | Change both together |

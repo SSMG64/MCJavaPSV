@@ -4,6 +4,7 @@ pub enum Command {
     Clear,
     Check,
     Prepare,
+    Pack,
     Cancel,
     Env,
     Logs,
@@ -16,6 +17,7 @@ Console commands:
   help      show this list
   check     verify the Minecraft install, server jar, Java and bundled files
   prepare   run Horizon's preparer on your own game files
+  pack      build the probe VPK into the output folder
   cancel    stop the running job
   env       print the detected setup and system details
   logs      show where the log files are kept
@@ -31,6 +33,7 @@ pub fn parse(input: &str) -> Result<Option<Command>, String> {
         "clear" | "cls" => Command::Clear,
         "check" => Command::Check,
         "prepare" => Command::Prepare,
+        "pack" => Command::Pack,
         "cancel" | "stop" => Command::Cancel,
         "env" => Command::Env,
         "logs" => Command::Logs,

@@ -21,9 +21,6 @@ jobs:
   vita-runtime:
     name: Vita executable
     runs-on: ubuntu-latest
-    # Nothing here has run on a runner yet. Remove this once the first run is green,
-    # so that a broken Vita build fails the workflow instead of being skipped.
-    continue-on-error: true
     env:
       VITASDK: /home/runner/vitasdk
     steps:
@@ -41,6 +38,12 @@ jobs:
         run: |
           rustup toolchain install nightly --profile minimal --component rust-src
           cargo +nightly install cargo-vita --locked
+
+      - name: Record toolchain versions
+        run: |
+          rustc +nightly --version --verbose
+          cargo +nightly vita --version || true
+          arm-vita-eabi-gcc --version | head -n 1
 
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -134,6 +137,21 @@ jobs:
           cp LICENSE README.md dist/
           (cd dist && find . -type f -print0 | sort -z | xargs -0 sha256sum) > SHA256SUMS
           mv SHA256SUMS dist/SHA256SUMS
+
+      - name: Build the probe package
+        if: ${{ matrix.profile == 'release' && hashFiles('dist/payload/eboot.bin') != '' }}
+        env:
+          MCJAVAPSV_HOME: ${{ runner.temp }}/mcjavapsv-home
+        run: ./dist/mcjavapsv-cli.exe pack-probe --output-dir probe
+
+      - name: Upload the probe package
+        if: ${{ matrix.profile == 'release' && hashFiles('dist/payload/eboot.bin') != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: probe-vpk
+          path: probe/MCJavaPSV-probe.vpk
+          if-no-files-found: error
+          retention-days: 14
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

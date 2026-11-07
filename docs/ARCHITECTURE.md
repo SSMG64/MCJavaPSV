@@ -33,10 +33,10 @@ All game data reaches the Vita as files the builder derives from your own instal
 
 | Crate | Target | Role |
 | --- | --- | --- |
-| `psv-vpk` | host | Writes `PARAM.SFO` and the VPK ZIP. The SFO output is identical to VitaSDK's `vita-mksfoex`, checked against files made by the real tool. ZIP output is deterministic. |
+| `psv-vpk` | host | Writes `PARAM.SFO` and the VPK ZIP, and generates generic LiveArea art. The SFO output is identical to VitaSDK's `vita-mksfoex`, checked against files made by the real tool. ZIP output is deterministic. |
 | `psv-setup` | host | Finds the Minecraft folder, reads the version file, verifies jar hashes, finds Java, and runs Horizon's `horizon-prepare` while streaming its JSON progress. |
 | `psv-builder` | host (Windows first) | The `mcjavapsv` window and the `mcjavapsv-cli` tool. Owns logging, the in-app console, settings and diagnostics. |
-| `psv-runtime` | Vita | The Vita executable. Built outside the main workspace with nightly Rust and VitaSDK. Today it is a probe that links Horizon's logic crates. |
+| `psv-runtime` | Vita | The Vita executable. Built outside the main workspace with nightly Rust and VitaSDK. Today it is a probe that runs Horizon's logic and measures memory, speed, threads, storage and floating point behavior. |
 
 ## The build pipeline
 
@@ -45,7 +45,7 @@ All game data reaches the Vita as files the builder derives from your own instal
 | 1. Validate | working | Version 26.3 is installed, the client jar matches the hash in its version file, the server jar matches the hash in the version file, a suitable Java exists, the bundled files are present. |
 | 2. Prepare | working, untested end to end | Runs `horizon-prepare` with `--prepare --progress json` against your files. It needs Java, and a full JDK unless precompiled exporters are used. Output goes to the app's work folder. |
 | 3. Bake | not started | Converts the prepared data into compact Vita formats: textures, compressed audio, packed worldgen and registry tables. |
-| 4. Pack | library done | `psv-vpk` writes `eboot.bin`, `sce_sys/param.sfo`, the LiveArea files and the baked data into one VPK. |
+| 4. Pack | probe package working | `psv-vpk` writes `eboot.bin`, `sce_sys/param.sfo`, the LiveArea files and, later, the baked data into one VPK. Today `pack-probe` builds a package with no game data. |
 
 The prebuilt `eboot.bin` is produced by CI and shipped next to the app in a `payload` folder,
 together with `horizon-prepare` and Horizon's `research-lock.json`. The player never needs
@@ -116,7 +116,7 @@ Phases are tentative and each ends with something that can be checked.
 | Phase | Outcome | Status |
 | --- | --- | --- |
 | 0 | Repository, CI, builder with checks, console and preparer driver, VPK writer, Vita probe | in this change |
-| 1 | CI builds the Vita probe with Horizon's logic and it runs on hardware; first memory and speed numbers | next |
+| 1 | CI builds the Vita probe with Horizon's logic and it runs on hardware; first memory and speed numbers | in progress: CI builds it and packages a probe VPK, waiting for hardware results |
 | 2 | Bake stage and a data format sized for the Vita | planned |
 | 3 | Vita renderer: textures, chunk meshes, a flying camera | planned |
 | 4 | World: chunk load and generation, player physics, parity traces against vanilla | planned |

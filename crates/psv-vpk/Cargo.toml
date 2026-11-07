@@ -8,6 +8,7 @@ rust-version.workspace = true
 repository.workspace = true
 
 [dependencies]
+png = { version = "0.18", default-features = false }
 thiserror = "2"
 zip = { version = "9.3", default-features = false, features = ["deflate"] }
 

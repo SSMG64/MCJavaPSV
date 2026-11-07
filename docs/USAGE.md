@@ -1,8 +1,9 @@
 # Usage
 
-This guide takes you from a fresh Windows PC to prepared game data. **Today the builder
-stops after preparing your data: building the final VPK arrives in a later phase**, and the
-Vita executable is still a probe. Read [LEGAL](LEGAL.md) first.
+This guide covers what the builder can do today: check your setup, prepare your game data, and
+build a **probe package** to try the Vita executable on a console. **The final VPK with the game
+arrives in a later phase**, and the Vita executable is still only a probe that measures the
+hardware. Read [LEGAL](LEGAL.md) first.
 
 ## What you need
 
@@ -25,7 +26,8 @@ Free disk space: not measured yet.
    point it at your Java 25 JDK folder.
 4. Press **Check setup**. Each line is `PASS`, `WARN` or `FAIL`.
 5. When nothing fails, press **Prepare game data**. Progress and messages appear in the console.
-6. **Build VPK** is disabled until a later phase.
+6. **Build VPK** is disabled until a later phase. To try the Vita executable, see
+   [Try the probe on a Vita](#try-the-probe-on-a-vita).
 
 ## What the checks mean
 
@@ -46,6 +48,7 @@ copy all of it, and **Open logs folder** to see the log files. Type a command in
 | `help` | Lists commands |
 | `check` | Same as **Check setup** |
 | `prepare` | Same as **Prepare game data** |
+| `pack` | Same as **Build probe VPK** |
 | `cancel` | Stops the running job |
 | `env` | Prints the detected setup and system details |
 | `logs` | Prints the log folder |
@@ -60,12 +63,43 @@ copy all of it, and **Open logs folder** to see the log files. Type a command in
 ```
 mcjavapsv-cli check   [--minecraft-dir DIR] [--server-jar FILE] [--java-home DIR]
 mcjavapsv-cli prepare [--minecraft-dir DIR] [--server-jar FILE] [--java-home DIR]
+mcjavapsv-cli pack-probe [--output-dir DIR]
 mcjavapsv-cli env
 mcjavapsv-cli logs
 ```
 
 Add `--verbose` for debug messages. It exits with a non-zero code when a check or the job fails.
 `RUST_LOG` overrides the log filter.
+
+## Try the probe on a Vita
+
+The probe package contains the Vita executable and generic artwork, and **no Minecraft data**, so
+you can build it without any game files. The executable measures what the console can do: usable
+memory, speed, threads, storage speed, and whether floating point maths matches the desktop.
+
+1. Get the package, either way:
+   - download the `probe-vpk` artifact from a successful run of the **Build** workflow on GitHub, or
+   - press **Build probe VPK** in the app (set **Output folder** first), or run `mcjavapsv-cli pack-probe`.
+2. Copy `MCJavaPSV-probe.vpk` to your Vita and install it with VitaShell.
+3. Start **MCJavaPSV Probe**. The screen stays blank because nothing draws yet. Give it a minute: it
+   closes by itself when it finishes.
+4. Open `ux0:data/MCJavaPSV/probe.txt` in VitaShell (or fetch it over FTP) and read it.
+
+The report is written after every stage, so if the app hangs or crashes, the file still shows how far
+it got. Close a hung app with the PS button and keep the file.
+
+| Line | Meaning |
+| --- | --- |
+| `check java_random_seed_0: ok` | Horizon's Java `Random` gives Java's known first value |
+| `check noise_matches_desktop: ok` | 4096 noise samples hash to the value measured on a PC. `FAILED` means ARM maths differs from x86 and needs investigating |
+| `check f32_denormals_preserved: ok` | Tiny floating point values are not flushed to zero, as Java requires |
+| `heap allocated and written MiB` | How much memory the game could really use. Compare with `heap configured MiB` |
+| `legacy random`, `xoroshiro`, `perlin get3` | Speed of the building blocks of worldgen, in millions per second |
+| `thread scaling` | How close three threads come to three times the speed of one |
+| `storage write` and `storage read` | Memory card speed in MiB per second |
+
+If the app closes at once and no `probe.txt` appears, the Vita probably could not grant the memory
+the probe asks for. Say so when you report it.
 
 ## Where files go
 
