@@ -16,7 +16,8 @@ belong to their owners and appear here only to say what the project works with.
 Source code and documentation under the [MIT License](../LICENSE). It does **not** contain,
 and must never contain:
 
-- Minecraft jars, classes, textures, sounds, shaders, data packs or any other game file
+- Minecraft jars, classes, textures, sounds, shaders, data packs or any other game file,
+  including logos, block textures and icons, even as an application icon
 - decompiled, deobfuscated or paraphrased-line-by-line Minecraft source code
 - files derived from a player's install (prepared data, baked data, builds)
 
@@ -33,8 +34,8 @@ responsible for holding a valid license and for following the
 
 ## What you build
 
-The builder reads **your** copy of the game. A VPK built from it will contain material derived
-from your copy.
+The builder reads **your** copy of the game. A VPK built from it, including the `data.pak`
+inside it, will contain material derived from your copy.
 
 - Use it on your own console, for yourself.
 - **Do not distribute it.** Do not upload it, share it, sell it, or put it in a release. Doing so

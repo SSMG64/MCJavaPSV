@@ -75,6 +75,7 @@ Copy the `eboot.bin` into the app's `payload` folder, or pass it to `scripts/sta
 | --- | --- | --- |
 | Heap size | `HEAP_MIB` in `src/main.rs` | 192 MiB in the probe. The probe reports how much the console really grants |
 | Memory mode | `ATTRIBUTE2` in `PARAM.SFO` | `psv-vpk` defaults to `12`, as `vita-mksfoex` does |
+| Data format | `crates/psv-pack`, used by path | Shared with the baker. Bump its `VERSION` for incompatible changes |
 | Nightly version | `crates/psv-runtime/rust-toolchain.toml` | Unpinned for now. Pin a date after the first green CI run |
 | Horizon revision | `crates/psv-runtime/Cargo.toml` and `packaging/horizon-rev.txt` | Change both together |
 

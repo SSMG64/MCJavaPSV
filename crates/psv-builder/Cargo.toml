@@ -19,6 +19,7 @@ name = "mcjavapsv-cli"
 path = "src/bin/mcjavapsv-cli.rs"
 
 [dependencies]
+psv-bake = { path = "../psv-bake" }
 psv-setup = { path = "../psv-setup" }
 psv-vpk = { path = "../psv-vpk" }
 clap = { version = "4", features = ["derive"] }
@@ -32,7 +33,14 @@ tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt", "registry", "std"] }
 
+[build-dependencies]
+psv-vpk = { path = "../psv-vpk" }
+winresource = "0.1"
+
 [dev-dependencies]
+psv-pack = { path = "../psv-pack" }
+png = { version = "0.18", default-features = false }
+egui_kittest = "0.37"
 tempfile = "3"
 zip = { version = "9.3", default-features = false, features = ["deflate"] }
 

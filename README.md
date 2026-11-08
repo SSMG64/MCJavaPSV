@@ -2,9 +2,9 @@
 
 An effort to run Minecraft: Java Edition 26.3 on the PlayStation Vita, written in Rust.
 
-> **Status: Phase 1, measuring the hardware. Nothing playable exists yet.**
-> The Windows builder checks your setup, prepares your game data and can build a probe
-> package. The Vita executable is a probe that measures what the console can do. See
+> **Status: Phase 2 done, nothing playable yet.**
+> The Windows builder checks your setup, prepares and bakes your game data, and writes a VPK.
+> The Vita executable inside is still a probe that measures what the console can do. See
 > [the roadmap](docs/ARCHITECTURE.md#roadmap) for what comes next.
 
 ## How it works
@@ -41,6 +41,8 @@ Full steps are in [USAGE](docs/USAGE.md). To try the Vita executable without any
 | --- | --- |
 | `crates/psv-builder` | The Windows app (`mcjavapsv`) and its command line twin (`mcjavapsv-cli`) |
 | `crates/psv-setup` | Finds and validates your Minecraft install and Java, and drives Horizon's preparer |
+| `crates/psv-pack` | The compact data container and lossless texture format shared by the baker and the Vita |
+| `crates/psv-bake` | Turns the prepared game data into the Vita data pack |
 | `crates/psv-vpk` | `PARAM.SFO` and VPK writers, tested byte for byte against VitaSDK's `vita-mksfoex` |
 | `crates/psv-runtime` | The executable that runs on the Vita (built separately with VitaSDK) |
 | `packaging/` | The pinned Horizon revision and release packaging notes |

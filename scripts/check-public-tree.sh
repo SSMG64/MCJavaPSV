@@ -5,7 +5,7 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
-forbidden_ext='\.(jar|class|java|nbt|mcmeta|fsh|vsh|glsl|ogg|vpk|self|velf|sfo)$'
+forbidden_ext='\.(jar|class|java|nbt|mcmeta|fsh|vsh|glsl|ogg|ico|vpk|self|velf|sfo)$'
 forbidden_path='(^|/)(net/minecraft|com/mojang|assets/minecraft|data/minecraft|\.minecraft)(/|$)'
 allowed='^crates/psv-vpk/tests/data/golden-[a-z-]+\.sfo$'
 

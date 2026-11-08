@@ -22,7 +22,7 @@ All of it lives in `%LOCALAPPDATA%\MCJavaPSV` (or `MCJAVAPSV_HOME`):
 | --- | --- |
 | `settings.json` | The paths you chose |
 | `logs\mcjavapsv.*.log` | Messages the app and its preparer printed, including file paths. The last 7 days are kept |
-| `work\` | Files produced while preparing your game data. These derive from your Minecraft copy |
+| `work\` | Files produced while preparing and baking your game data (`prepared`, `baked`). These derive from your Minecraft copy |
 | `diagnostics-*.txt` | Only if you run `export`. See below |
 
 Log files are **not** redacted. Your account name appears wherever it is part of a path.

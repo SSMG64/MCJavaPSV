@@ -5,6 +5,8 @@ pub enum Command {
     Check,
     Prepare,
     Pack,
+    Bake,
+    Build,
     Cancel,
     Env,
     Logs,
@@ -17,7 +19,9 @@ Console commands:
   help      show this list
   check     verify the Minecraft install, server jar, Java and bundled files
   prepare   run Horizon's preparer on your own game files
-  pack      build the probe VPK into the output folder
+  bake      turn the prepared game data into the Vita data pack
+  build     prepare, bake and write the full VPK into the output folder
+  pack      build the probe VPK (no game data) into the output folder
   cancel    stop the running job
   env       print the detected setup and system details
   logs      show where the log files are kept
@@ -34,6 +38,8 @@ pub fn parse(input: &str) -> Result<Option<Command>, String> {
         "check" => Command::Check,
         "prepare" => Command::Prepare,
         "pack" => Command::Pack,
+        "bake" => Command::Bake,
+        "build" => Command::Build,
         "cancel" | "stop" => Command::Cancel,
         "env" => Command::Env,
         "logs" => Command::Logs,
@@ -64,7 +70,8 @@ mod tests {
     #[test]
     fn every_command_is_documented() {
         for word in [
-            "help", "check", "prepare", "cancel", "env", "logs", "export", "version", "clear",
+            "help", "check", "prepare", "bake", "build", "pack", "cancel", "env", "logs", "export",
+            "version", "clear",
         ] {
             assert!(HELP.contains(word), "{word} missing from HELP");
         }

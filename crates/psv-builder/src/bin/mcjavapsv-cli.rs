@@ -44,6 +44,16 @@ enum Cmd {
     Check(Sources),
     /// Run Horizon's preparer on your own game files
     Prepare(Sources),
+    /// Turn already prepared game data into the Vita data pack
+    Bake,
+    /// Run the whole pipeline: prepare, bake, and write the full VPK
+    Build {
+        #[command(flatten)]
+        sources: Sources,
+        /// Folder for the package (default: the saved output folder, else the current folder)
+        #[arg(long)]
+        output_dir: Option<PathBuf>,
+    },
     /// Build the probe VPK (no Minecraft data) from the bundled eboot.bin
     PackProbe {
         /// Folder for the package (default: the saved output folder, else the current folder)
@@ -84,6 +94,40 @@ fn main() -> ExitCode {
                 ExitCode::SUCCESS
             } else {
                 ExitCode::FAILURE
+            }
+        }
+        Cmd::Bake => {
+            let cancel = AtomicBool::new(false);
+            match jobs::bake_blocking(&paths, &cancel, |_| {}) {
+                Ok(path) => {
+                    println!("{}", path.display());
+                    ExitCode::SUCCESS
+                }
+                Err(error) => {
+                    tracing::error!("{error}");
+                    ExitCode::FAILURE
+                }
+            }
+        }
+        Cmd::Build {
+            sources,
+            output_dir,
+        } => {
+            let settings = merged(&paths, sources);
+            let output_dir = output_dir
+                .or_else(|| settings.output_dir.clone())
+                .unwrap_or_else(|| PathBuf::from("."));
+            let inputs = settings.inputs(&payload);
+            let cancel = AtomicBool::new(false);
+            match jobs::build_blocking(&inputs, &paths, &payload, &output_dir, &cancel, |_| {}) {
+                Ok(path) => {
+                    println!("{}", path.display());
+                    ExitCode::SUCCESS
+                }
+                Err(error) => {
+                    tracing::error!("{error}");
+                    ExitCode::FAILURE
+                }
             }
         }
         Cmd::PackProbe { output_dir } => {

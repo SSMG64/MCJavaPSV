@@ -224,11 +224,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "psv-pack"
+version = "0.1.0"
+dependencies = [
+ "crc32fast",
+ "lz4_flex",
+ "thiserror",
+]
+
+[[package]]
 name = "psv-runtime"
 version = "0.1.0"
 dependencies = [
  "horizon-core",
  "horizon-world",
+ "psv-pack",
  "tempfile",
 ]
 

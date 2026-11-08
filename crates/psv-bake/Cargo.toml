@@ -1,0 +1,21 @@
+[package]
+name = "psv-bake"
+description = "Turns a prepared Minecraft resource folder into the Vita's compact data pack"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+[dependencies]
+psv-pack = { path = "../psv-pack" }
+psv-vpk = { path = "../psv-vpk" }
+thiserror = "2"
+zip = { version = "9.3", default-features = false, features = ["deflate"] }
+
+[dev-dependencies]
+png = { version = "0.18", default-features = false }
+tempfile = "3"
+
+[lints]
+workspace = true

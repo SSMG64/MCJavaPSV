@@ -3,6 +3,7 @@
 //! [`ParamSfo`] produces the same bytes as `vita-mksfoex` from VitaSDK, and
 //! [`VpkBuilder`] produces the ZIP container the Vita installs from.
 
+pub mod icon;
 pub mod livearea;
 pub mod sfo;
 pub mod vpk;

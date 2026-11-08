@@ -1,13 +1,15 @@
 use std::fmt::{Display, Write as _};
 use std::fs::{self, File};
 use std::hint::black_box;
+use std::io::Cursor;
 use std::io::{Read, Write};
 use std::panic::{self, AssertUnwindSafe};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use horizon_core::noise::PerlinNoise;
 use horizon_core::random::{LegacyRandom, RandomSource, XoroshiroRandom};
+use psv_pack::{CodecChoice, PackReader, PackWriter, texture};
 
 pub const SEED_ZERO_FIRST_INT: i32 = -1_155_484_576;
 pub const NOISE_CHECKSUM: u64 = 0x2e9c_9cc9_113f_6ec3;
@@ -24,6 +26,8 @@ pub struct Config {
     pub thread_samples: u32,
     pub threads: usize,
     pub io_mib: usize,
+    pub synthetic_textures: u32,
+    pub data_pack: Option<PathBuf>,
 }
 
 impl Config {
@@ -36,9 +40,12 @@ impl Config {
             thread_samples: 100_000,
             threads: 3,
             io_mib: 8,
+            synthetic_textures: 1024,
+            data_pack: Some(PathBuf::from("app0:data/data.pak")),
         }
     }
 
+    #[cfg(test)]
     pub fn quick() -> Self {
         Self {
             heap_configured_mib: 32,
@@ -48,6 +55,8 @@ impl Config {
             thread_samples: 2_000,
             threads: 2,
             io_mib: 1,
+            synthetic_textures: 64,
+            data_pack: None,
         }
     }
 }
@@ -256,6 +265,157 @@ fn threads(report: &mut Report, config: &Config) {
     }
 }
 
+fn synthetic_texture(seed: u32) -> Vec<u8> {
+    let palette: Vec<[u8; 4]> = (0..12_u32)
+        .map(|c| {
+            let v = seed.wrapping_mul(2_654_435_761).wrapping_add(c * 40_503);
+            [
+                (v >> 3) as u8,
+                (v >> 11) as u8,
+                (v >> 19) as u8,
+                if c == 0 { 0 } else { 255 },
+            ]
+        })
+        .collect();
+    let mut state = seed.wrapping_add(0x9E37_79B9) | 1;
+    (0..16 * 16)
+        .flat_map(|_| {
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+            palette[(state >> 7) as usize % palette.len()]
+        })
+        .collect()
+}
+
+fn pack_stage(report: &mut Report, config: &Config) {
+    let count = config.synthetic_textures;
+    let originals: Vec<Vec<u8>> = (0..count).map(synthetic_texture).collect();
+
+    let (built, seconds) = timed(|| -> Result<(Vec<u8>, psv_pack::PackStats), String> {
+        let mut writer = PackWriter::new(Cursor::new(Vec::new())).map_err(|e| e.to_string())?;
+        for (i, pixels) in originals.iter().enumerate() {
+            let blob = texture::encode(16, 16, pixels).map_err(|e| e.to_string())?;
+            writer
+                .add(&format!("tex/{i:05}.tex"), &blob, CodecChoice::Auto)
+                .map_err(|e| e.to_string())?;
+            let text = format!("{{\"parent\":\"block/cube_all\",\"id\":{i}}}").repeat(8);
+            writer
+                .add(
+                    &format!("models/{i:05}.json"),
+                    text.as_bytes(),
+                    CodecChoice::Auto,
+                )
+                .map_err(|e| e.to_string())?;
+        }
+        let (sink, stats) = writer.finish().map_err(|e| e.to_string())?;
+        Ok((sink.into_inner(), stats))
+    });
+    let (bytes, stats) = match built {
+        Ok(done) => done,
+        Err(message) => {
+            report.failures += 1;
+            report.line(format_args!("pack build FAILED: {message}"));
+            return;
+        }
+    };
+    report.line(format_args!(
+        "pack synthetic: {} entries, {} KiB raw, {} KiB packed, build {:.0} ms",
+        stats.entries,
+        stats.raw_bytes / 1024,
+        stats.file_bytes / 1024,
+        seconds * 1000.0
+    ));
+
+    let (opened, open_seconds) = timed(|| PackReader::open(Cursor::new(bytes)));
+    let mut reader = match opened {
+        Ok(reader) => reader,
+        Err(error) => {
+            report.failures += 1;
+            report.line(format_args!("pack open FAILED: {error}"));
+            return;
+        }
+    };
+    report.line(format_args!(
+        "pack index open: {:.1} ms",
+        open_seconds * 1000.0
+    ));
+
+    let (matches, seconds) = timed(|| {
+        let mut ok = true;
+        let mut raw = 0_usize;
+        for (i, pixels) in originals.iter().enumerate() {
+            let blob = reader.read(&format!("tex/{i:05}.tex"));
+            let decoded = blob.ok().and_then(|b| texture::decode(&b).ok());
+            ok &= decoded.as_ref().is_some_and(|t| t.rgba == *pixels);
+            raw += pixels.len();
+            let model = reader.read(&format!("models/{i:05}.json"));
+            ok &= model.as_ref().is_ok_and(|m| m.starts_with(b"{"));
+            raw += model.map_or(0, |m| m.len());
+        }
+        (ok, raw)
+    });
+    let (ok, raw) = matches;
+    report.check("pack_round_trip", ok);
+    report.line(format_args!(
+        "pack read+decode: {:.0} ms, {:.1} MiB/s, {:.2} Mpix/s",
+        seconds * 1000.0,
+        raw as f64 / MIB as f64 / seconds,
+        f64::from(count) * 256.0 / seconds / 1e6
+    ));
+}
+
+fn installed_pack(report: &mut Report, config: &Config) {
+    let Some(path) = &config.data_pack else {
+        return;
+    };
+    let Ok(file) = File::open(path) else {
+        report.line("data.pak: not in this package (expected for the probe)");
+        return;
+    };
+    let size = file.metadata().map_or(0, |m| m.len());
+    let (opened, seconds) = timed(|| PackReader::open(file));
+    match opened {
+        Ok(mut reader) => {
+            report.line(format_args!(
+                "data.pak: {} entries, {:.1} MiB, index opened in {:.0} ms",
+                reader.len(),
+                size as f64 / MIB as f64,
+                seconds * 1000.0
+            ));
+            let textures: Vec<String> = reader
+                .entries()
+                .iter()
+                .filter(|e| e.path.ends_with(".tex"))
+                .take(500)
+                .map(|e| e.path.clone())
+                .collect();
+            let (decoded, seconds) = timed(|| {
+                textures
+                    .iter()
+                    .filter(|p| {
+                        reader
+                            .read(p)
+                            .ok()
+                            .and_then(|b| texture::decode(&b).ok())
+                            .is_some()
+                    })
+                    .count()
+            });
+            report.check("data_pak_textures_decode", decoded == textures.len());
+            report.line(format_args!(
+                "data.pak: {} textures read and decoded in {:.0} ms",
+                textures.len(),
+                seconds * 1000.0
+            ));
+        }
+        Err(error) => {
+            report.failures += 1;
+            report.line(format_args!("data.pak FAILED to open: {error}"));
+        }
+    }
+}
+
 fn storage(report: &mut Report, config: &Config, dir: &Path) {
     let path = dir.join("io.tmp");
     let chunk = vec![0xA5_u8; 64 * 1024];
@@ -328,6 +488,10 @@ pub fn run(config: &Config, dir: &Path) -> Report {
     stage(&mut report, "speed", |r| speed(r, config));
     stage(&mut report, "threads", |r| threads(r, config));
     stage(&mut report, "storage", |r| storage(r, config, dir));
+    stage(&mut report, "pack", |r| {
+        pack_stage(r, config);
+        installed_pack(r, config);
+    });
 
     let failures = report.failures;
     report.value("failures", failures);
@@ -363,7 +527,7 @@ mod tests {
     fn full_run_reports_every_stage_and_no_failures() {
         let dir = tempfile::tempdir().unwrap();
         let report = run(&Config::quick(), dir.path());
-        for stage in ["correctness", "heap", "speed", "threads", "storage"] {
+        for stage in ["correctness", "heap", "speed", "threads", "storage", "pack"] {
             assert!(
                 report.text().contains(&format!("-- {stage}")),
                 "{stage} missing"
@@ -374,5 +538,54 @@ mod tests {
         let written = std::fs::read_to_string(dir.path().join("probe.txt")).unwrap();
         assert_eq!(written, report.text());
         assert!(!dir.path().join("io.tmp").exists());
+    }
+
+    #[test]
+    fn an_installed_pack_is_opened_and_its_textures_decoded() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("data.pak");
+        let mut writer = PackWriter::new(std::fs::File::create(&path).unwrap()).unwrap();
+        for i in 0..3_u32 {
+            let blob = texture::encode(16, 16, &synthetic_texture(i)).unwrap();
+            writer
+                .add(&format!("t/{i}.tex"), &blob, CodecChoice::Auto)
+                .unwrap();
+        }
+        writer.finish().unwrap();
+
+        let mut config = Config::quick();
+        config.data_pack = Some(path);
+        let mut report = Report::new(None);
+        installed_pack(&mut report, &config);
+        assert!(
+            report.text().contains("data.pak: 3 entries"),
+            "{}",
+            report.text()
+        );
+        assert!(report.text().contains("check data_pak_textures_decode: ok"));
+        assert_eq!(report.failures, 0);
+    }
+
+    #[test]
+    fn a_missing_pack_is_reported_not_failed() {
+        let mut config = Config::quick();
+        config.data_pack = Some(PathBuf::from("/definitely/not/here.pak"));
+        let mut report = Report::new(None);
+        installed_pack(&mut report, &config);
+        assert!(report.text().contains("not in this package"));
+        assert_eq!(report.failures, 0);
+    }
+
+    #[test]
+    fn a_corrupt_pack_is_a_failure() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("data.pak");
+        std::fs::write(&path, b"this is not a pack file at all, just filler bytes").unwrap();
+        let mut config = Config::quick();
+        config.data_pack = Some(path);
+        let mut report = Report::new(None);
+        installed_pack(&mut report, &config);
+        assert_eq!(report.failures, 1);
+        assert!(report.text().contains("FAILED to open"));
     }
 }

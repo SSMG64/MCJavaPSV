@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/psv-vpk", "crates/psv-setup", "crates/psv-builder"]
+members = ["crates/psv-vpk", "crates/psv-pack", "crates/psv-bake", "crates/psv-setup", "crates/psv-builder"]
 exclude = ["crates/psv-runtime"]
 
 [workspace.package]

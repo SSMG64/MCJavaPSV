@@ -11,6 +11,9 @@ Thanks for helping. Please read the [Code of Conduct](CODE_OF_CONDUCT.md) and th
 3. Keep parity checks against vanilla on your machine. Short numeric results (a seed, a hash,
    a count) are fine in an issue. Files from the game are not.
 4. Do not ask for or post built VPKs or prepared data.
+5. Never commit game artwork, including logos and block textures, even as an icon. The app icon
+   and the LiveArea art are generated in code. For a private icon on your own machine, see
+   [BUILDING-WIN](BUILDING-WIN.md#the-icon).
 
 CI runs `scripts/check-public-tree.sh` and rejects many of these files, but you are the first
 line of defense.
@@ -46,6 +49,13 @@ Run them before you open a pull request. The Vita crate is separate: see [BUILDI
 - Write documentation in plain language, and avoid em dashes.
 - Keep dependencies few. A new one needs a reason, a compatible license and a reasonable MSRV
   (the workspace requires Rust 1.95).
+
+## Changing the data format
+
+`crates/psv-pack` is read by both the baker and the Vita runtime. If a change would make an old
+reader misread a new file, bump `VERSION` there, keep readers refusing newer versions, add a test
+for the new layout, and update [ARCHITECTURE](ARCHITECTURE.md#the-baked-data-format). A format that
+two independent readers can follow from the description alone is the goal.
 
 ## Performance work
 

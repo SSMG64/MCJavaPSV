@@ -12,7 +12,7 @@ use crate::sfo::ParamSfo;
 pub const EBOOT_PATH: &str = "eboot.bin";
 pub const SFO_PATH: &str = "sce_sys/param.sfo";
 
-const STORED_EXTENSIONS: &[&str] = &["gxt", "jpg", "lz4", "ogg", "png", "zip", "zst"];
+const STORED_EXTENSIONS: &[&str] = &["gxt", "jpg", "lz4", "ogg", "pak", "png", "zip", "zst"];
 const FORBIDDEN_CHARS: &[char] = &['\\', ':', '*', '?', '"', '<', '>', '|'];
 
 #[derive(Debug, Error)]

@@ -14,17 +14,35 @@ use crate::payload::Payload;
 use crate::settings::Settings;
 
 const REPAINT_INTERVAL: Duration = Duration::from_millis(100);
+const LABEL_WIDTH: f32 = 130.0;
+const BROWSE_WIDTH: f32 = 76.0;
+const MIN_FIELD_WIDTH: f32 = 160.0;
+
+const WINDOW_ICON_PNG: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/window-icon.png"));
+
+fn window_icon() -> Option<egui::IconData> {
+    let image = psv_vpk::icon::decode_png(WINDOW_ICON_PNG).ok()?;
+    Some(egui::IconData {
+        rgba: image.pixels,
+        width: image.width,
+        height: image.height,
+    })
+}
 
 pub fn run(
     paths: AppPaths,
     payload: Payload,
     console: std::sync::Arc<ConsoleBuffer>,
 ) -> eframe::Result<()> {
+    let mut viewport = egui::ViewportBuilder::default()
+        .with_inner_size([940.0, 720.0])
+        .with_min_inner_size([680.0, 480.0])
+        .with_title("MCJavaPSV Builder");
+    if let Some(icon) = window_icon() {
+        viewport = viewport.with_icon(icon);
+    }
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([940.0, 720.0])
-            .with_min_inner_size([680.0, 480.0])
-            .with_title("MCJavaPSV Builder"),
+        viewport,
         ..eframe::NativeOptions::default()
     };
     eframe::run_native(
@@ -62,6 +80,10 @@ pub struct App {
     command_input: String,
     filters: Filters,
     stick_to_bottom: bool,
+    #[cfg_attr(not(test), allow(dead_code))]
+    console_height: f32,
+    #[cfg_attr(not(test), allow(dead_code))]
+    field_width: f32,
 }
 
 fn path_text(path: &Option<PathBuf>) -> String {
@@ -116,6 +138,8 @@ impl App {
                 error: true,
             },
             stick_to_bottom: true,
+            console_height: 0.0,
+            field_width: 0.0,
         };
         if app.fields.minecraft_dir.is_empty() {
             app.auto_detect();
@@ -185,6 +209,37 @@ impl App {
         ));
     }
 
+    fn start_bake(&mut self) {
+        if self.busy() {
+            tracing::warn!(target: "ui", "a job is already running");
+            return;
+        }
+        self.progress = 0.0;
+        self.status = "Baking the game data".to_owned();
+        self.job = Some(jobs::spawn_bake(self.paths.clone()));
+    }
+
+    fn start_build(&mut self) {
+        if self.busy() {
+            tracing::warn!(target: "ui", "a job is already running");
+            return;
+        }
+        let Some(output_dir) = text_path(&self.fields.output_dir) else {
+            self.status = "Choose an output folder first".to_owned();
+            tracing::warn!(target: "ui", "no output folder chosen");
+            return;
+        };
+        self.persist_if_changed();
+        self.progress = 0.0;
+        self.status = "Building the package".to_owned();
+        self.job = Some(jobs::spawn_build(
+            self.settings().inputs(&self.payload),
+            self.paths.clone(),
+            self.payload.clone(),
+            output_dir,
+        ));
+    }
+
     fn start_pack_probe(&mut self) {
         if self.busy() {
             tracing::warn!(target: "ui", "a job is already running");
@@ -237,6 +292,8 @@ impl App {
             Command::Check => self.start_check(),
             Command::Prepare => self.start_prepare(),
             Command::Pack => self.start_pack_probe(),
+            Command::Bake => self.start_bake(),
+            Command::Build => self.start_build(),
             Command::Cancel => match &self.job {
                 Some(job) => {
                     job.request_cancel();
@@ -288,68 +345,63 @@ impl App {
         }
     }
 
-    fn path_row(
-        ui: &mut egui::Ui,
-        label: &str,
-        hint: &str,
-        value: &mut String,
-    ) -> Option<RowAction> {
-        let mut action = None;
-        ui.label(label);
-        ui.add(
-            egui::TextEdit::singleline(value)
-                .hint_text(hint)
-                .desired_width(f32::INFINITY),
-        );
-        if ui.button("Browse").clicked() {
-            action = Some(RowAction::Browse);
-        }
-        ui.end_row();
-        action
+    fn path_row(ui: &mut egui::Ui, label: &str, hint: &str, value: &mut String) -> PathRow {
+        ui.horizontal(|ui| {
+            ui.allocate_ui_with_layout(
+                egui::vec2(LABEL_WIDTH, ui.spacing().interact_size.y),
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| ui.label(label),
+            );
+            let field_width = (ui.available_width() - BROWSE_WIDTH - ui.spacing().item_spacing.x)
+                .max(MIN_FIELD_WIDTH);
+            ui.add(
+                egui::TextEdit::singleline(value)
+                    .hint_text(hint)
+                    .desired_width(field_width),
+            );
+            let browse = ui
+                .add(egui::Button::new("Browse").min_size(egui::vec2(BROWSE_WIDTH, 0.0)))
+                .clicked();
+            PathRow {
+                browse,
+                field_width,
+            }
+        })
+        .inner
     }
 
     fn main_ui(&mut self, ui: &mut egui::Ui) {
         ui.heading("MCJavaPSV Builder");
-        ui.label("Check your setup, prepare your game data, or build a probe package to try the Vita executable. The full VPK arrives in a later phase.");
+        ui.label("Check your setup, then Build VPK to prepare, bake and package your game data. Build probe VPK makes a test package with no game data.");
         ui.add_space(8.0);
 
-        let mut browse_minecraft = false;
-        let mut browse_server = false;
-        let mut browse_java = false;
-        let mut browse_output = false;
-        egui::Grid::new("setup")
-            .num_columns(3)
-            .spacing([8.0, 6.0])
-            .show(ui, |ui| {
-                browse_minecraft = Self::path_row(
-                    ui,
-                    "Minecraft folder",
-                    "the official launcher's .minecraft folder",
-                    &mut self.fields.minecraft_dir,
-                )
-                .is_some();
-                browse_server = Self::path_row(
-                    ui,
-                    "Server jar",
-                    "the official 26.3 server jar you downloaded",
-                    &mut self.fields.server_jar,
-                )
-                .is_some();
-                browse_java = Self::path_row(
-                    ui,
-                    "Java folder",
-                    "optional: a Java 25 JDK, detected automatically if empty",
-                    &mut self.fields.java_home,
-                )
-                .is_some();
-                browse_output = Self::path_row(
-                    ui,
-                    "Output folder",
-                    "where finished packages are written",
-                    &mut self.fields.output_dir,
-                )
-                .is_some();
-            });
+        let minecraft = Self::path_row(
+            ui,
+            "Minecraft folder",
+            "the official launcher's .minecraft folder",
+            &mut self.fields.minecraft_dir,
+        );
+        let server = Self::path_row(
+            ui,
+            "Server jar",
+            "the official 26.3 server jar you downloaded",
+            &mut self.fields.server_jar,
+        );
+        let java = Self::path_row(
+            ui,
+            "Java folder",
+            "optional: a Java 25 JDK, detected automatically if empty",
+            &mut self.fields.java_home,
+        );
+        let output = Self::path_row(
+            ui,
+            "Output folder",
+            "where finished packages are written",
+            &mut self.fields.output_dir,
+        );
+        self.field_width = minecraft.field_width;
+        let (browse_minecraft, browse_server, browse_java, browse_output) =
+            (minecraft.browse, server.browse, java.browse, output.browse);
 
         if browse_minecraft && let Some(dir) = rfd::FileDialog::new().pick_folder() {
             self.fields.minecraft_dir = dir.display().to_string();
@@ -370,7 +422,7 @@ impl App {
         }
 
         ui.add_space(8.0);
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             if ui.button("Auto-detect").clicked() {
                 self.auto_detect();
             }
@@ -400,8 +452,20 @@ impl App {
             {
                 self.start_pack_probe();
             }
-            ui.add_enabled(false, egui::Button::new("Build VPK"))
-                .on_disabled_hover_text("Available in a later phase");
+            if ui
+                .add_enabled(!self.busy(), egui::Button::new("Bake"))
+                .on_hover_text("Turn the prepared game data into the Vita data pack")
+                .clicked()
+            {
+                self.start_bake();
+            }
+            if ui
+                .add_enabled(!self.busy(), egui::Button::new("Build VPK"))
+                .on_hover_text("Prepare, bake and write the full package into the output folder")
+                .clicked()
+            {
+                self.start_build();
+            }
         });
 
         if self.busy() {
@@ -470,24 +534,29 @@ impl App {
 
         let lines = self.visible_lines();
         let row_height = ui.text_style_height(&egui::TextStyle::Monospace);
-        let input_height = 34.0;
-        let height = (ui.available_height() - input_height).max(60.0);
-        egui::ScrollArea::vertical()
-            .max_height(height)
-            .auto_shrink([false, false])
-            .stick_to_bottom(self.stick_to_bottom)
-            .show_rows(ui, row_height, lines.len(), |ui, range| {
-                for line in &lines[range] {
-                    let color = match line.level {
-                        Level::ERROR => Color32::from_rgb(235, 100, 100),
-                        Level::WARN => Color32::from_rgb(230, 180, 60),
-                        Level::INFO => ui.visuals().text_color(),
-                        _ => Color32::GRAY,
-                    };
-                    ui.label(RichText::new(line.render()).monospace().color(color));
-                }
+        let stick = self.stick_to_bottom;
+        ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
+            self.command_row(ui);
+            ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false, false])
+                    .stick_to_bottom(stick)
+                    .show_rows(ui, row_height, lines.len(), |ui, range| {
+                        for line in &lines[range] {
+                            let color = match line.level {
+                                Level::ERROR => Color32::from_rgb(235, 100, 100),
+                                Level::WARN => Color32::from_rgb(230, 180, 60),
+                                Level::INFO => ui.visuals().text_color(),
+                                _ => Color32::GRAY,
+                            };
+                            ui.label(RichText::new(line.render()).monospace().color(color));
+                        }
+                    });
             });
+        });
+    }
 
+    fn command_row(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.label(RichText::new(">").monospace());
             let response = ui.add(
@@ -510,10 +579,22 @@ impl App {
             }
         });
     }
+
+    fn show(&mut self, ui: &mut egui::Ui) {
+        let console = egui::Panel::bottom("console")
+            .resizable(true)
+            .default_size(300.0)
+            .min_size(120.0)
+            .show(ui, |ui| self.console_ui(ui));
+        self.console_height = console.response.rect.height();
+        egui::CentralPanel::default().show(ui, |ui| self.main_ui(ui));
+        self.persist_if_changed();
+    }
 }
 
-enum RowAction {
-    Browse,
+struct PathRow {
+    browse: bool,
+    field_width: f32,
 }
 
 impl eframe::App for App {
@@ -523,13 +604,7 @@ impl eframe::App for App {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        egui::Panel::bottom("console")
-            .resizable(true)
-            .default_size(300.0)
-            .min_size(120.0)
-            .show(ui, |ui| self.console_ui(ui));
-        egui::CentralPanel::default().show(ui, |ui| self.main_ui(ui));
-        self.persist_if_changed();
+        self.show(ui);
     }
 }
 
@@ -546,5 +621,71 @@ mod tests {
         assert_eq!(text_path("   "), None);
         assert_eq!(path_text(&None), "");
         assert_eq!(path_text(&Some("a".into())), "a");
+    }
+}
+
+#[cfg(test)]
+mod layout_tests {
+    use std::sync::Arc;
+
+    use egui_kittest::Harness;
+
+    use super::*;
+
+    fn app(dir: &Path) -> App {
+        App::new(
+            AppPaths {
+                data_dir: dir.join("data"),
+            },
+            Payload {
+                dir: dir.join("payload"),
+            },
+            Arc::new(ConsoleBuffer::default()),
+        )
+    }
+
+    fn harness(dir: &Path, width: f32, height: f32) -> Harness<'static, App> {
+        Harness::builder()
+            .with_size(egui::vec2(width, height))
+            .build_ui_state(|ui, app: &mut App| app.show(ui), app(dir))
+    }
+
+    #[test]
+    fn console_keeps_its_height_instead_of_retracting() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut harness = harness(dir.path(), 900.0, 700.0);
+        harness.run_steps(3);
+        let first = harness.state().console_height;
+        harness.run_steps(60);
+        let last = harness.state().console_height;
+        assert!(first > 250.0, "console starts too small: {first}");
+        assert!(
+            (first - last).abs() < 1.0,
+            "console height drifted from {first} to {last}"
+        );
+    }
+
+    #[test]
+    fn path_fields_fill_the_row() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut narrow = harness(dir.path(), 900.0, 700.0);
+        narrow.run_steps(3);
+        let mut wide = harness(dir.path(), 1500.0, 700.0);
+        wide.run_steps(3);
+
+        let narrow_width = narrow.state().field_width;
+        let wide_width = wide.state().field_width;
+        assert!(narrow_width > 550.0, "fields are too small: {narrow_width}");
+        assert!(
+            wide_width > narrow_width + 500.0,
+            "fields do not grow with the window: {narrow_width} then {wide_width}"
+        );
+    }
+
+    #[test]
+    fn window_icon_decodes() {
+        let icon = window_icon().unwrap();
+        assert_eq!((icon.width, icon.height), (256, 256));
+        assert_eq!(icon.rgba.len(), 256 * 256 * 4);
     }
 }

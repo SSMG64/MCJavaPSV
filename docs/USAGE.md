@@ -1,9 +1,9 @@
 # Usage
 
 This guide covers what the builder can do today: check your setup, prepare your game data, and
-build a **probe package** to try the Vita executable on a console. **The final VPK with the game
-arrives in a later phase**, and the Vita executable is still only a probe that measures the
-hardware. Read [LEGAL](LEGAL.md) first.
+build a **probe package** to try the Vita executable on a console. **The Vita executable inside the
+VPK is still only a probe that measures the hardware, so the package is not a playable game
+yet.** Read [LEGAL](LEGAL.md) first.
 
 ## What you need
 
@@ -26,7 +26,9 @@ Free disk space: not measured yet.
    point it at your Java 25 JDK folder.
 4. Press **Check setup**. Each line is `PASS`, `WARN` or `FAIL`.
 5. When nothing fails, press **Prepare game data**. Progress and messages appear in the console.
-6. **Build VPK** is disabled until a later phase. To try the Vita executable, see
+6. Press **Build VPK** (set **Output folder** first) to prepare, bake and package in one go.
+   **Bake** alone converts game data you already prepared. The package holds data derived from
+   your copy of the game, so do not share it. To try the Vita executable without game data, see
    [Try the probe on a Vita](#try-the-probe-on-a-vita).
 
 ## What the checks mean
@@ -48,6 +50,8 @@ copy all of it, and **Open logs folder** to see the log files. Type a command in
 | `help` | Lists commands |
 | `check` | Same as **Check setup** |
 | `prepare` | Same as **Prepare game data** |
+| `bake` | Same as **Bake** |
+| `build` | Same as **Build VPK** |
 | `pack` | Same as **Build probe VPK** |
 | `cancel` | Stops the running job |
 | `env` | Prints the detected setup and system details |
@@ -63,6 +67,8 @@ copy all of it, and **Open logs folder** to see the log files. Type a command in
 ```
 mcjavapsv-cli check   [--minecraft-dir DIR] [--server-jar FILE] [--java-home DIR]
 mcjavapsv-cli prepare [--minecraft-dir DIR] [--server-jar FILE] [--java-home DIR]
+mcjavapsv-cli bake
+mcjavapsv-cli build   [--minecraft-dir DIR] [--server-jar FILE] [--java-home DIR] [--output-dir DIR]
 mcjavapsv-cli pack-probe [--output-dir DIR]
 mcjavapsv-cli env
 mcjavapsv-cli logs
@@ -97,6 +103,9 @@ it got. Close a hung app with the PS button and keep the file.
 | `legacy random`, `xoroshiro`, `perlin get3` | Speed of the building blocks of worldgen, in millions per second |
 | `thread scaling` | How close three threads come to three times the speed of one |
 | `storage write` and `storage read` | Memory card speed in MiB per second |
+| `check pack_round_trip: ok` | The Vita packs and unpacks 1,024 synthetic textures and 1,024 JSON files without losing a byte |
+| `pack read+decode` | How fast the Vita unpacks data: MiB per second, and million texture pixels per second |
+| `data.pak: ... entries` | Only in a full package: the real data pack opens, and 500 of its textures decode |
 
 If the app closes at once and no `probe.txt` appears, the Vita probably could not grant the memory
 the probe asks for. Say so when you report it.
@@ -107,6 +116,7 @@ the probe asks for. Say so when you report it.
 | --- | --- |
 | Settings, logs, work files, diagnostics | `%LOCALAPPDATA%\MCJavaPSV` |
 | Prepared game data | `%LOCALAPPDATA%\MCJavaPSV\work\prepared` |
+| Baked data pack | `%LOCALAPPDATA%\MCJavaPSV\work\baked\data.pak` |
 | Log files | `%LOCALAPPDATA%\MCJavaPSV\logs` (the last 7 days are kept) |
 
 Set `MCJAVAPSV_HOME` to use another folder. Deleting the folder removes everything the app stored.

@@ -86,9 +86,13 @@ fn nested_squares(canvas: &mut Canvas, rings: &[(u32, Rgb)]) {
 }
 
 pub fn icon() -> Result<Vec<u8>, png::EncodingError> {
-    let mut canvas = Canvas::gradient(ICON_SIZE.0, ICON_SIZE.1, LIGHT, DEEP);
-    nested_squares(&mut canvas, &[(44, ACCENT), (36, DEEP), (20, ACCENT)]);
-    canvas.encode()
+    let image = crate::icon::generated(ICON_SIZE.0);
+    let mut out = Vec::new();
+    let mut encoder = png::Encoder::new(&mut out, image.width, image.height);
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_depth(png::BitDepth::Eight);
+    encoder.write_header()?.write_image_data(&image.pixels)?;
+    Ok(out)
 }
 
 pub fn background() -> Result<Vec<u8>, png::EncodingError> {
