@@ -233,13 +233,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "psv-render"
+version = "0.1.0"
+dependencies = [
+ "psv-pack",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "psv-runtime"
 version = "0.1.0"
 dependencies = [
  "horizon-core",
  "horizon-world",
  "psv-pack",
+ "psv-render",
  "tempfile",
+ "thiserror",
 ]
 
 [[package]]

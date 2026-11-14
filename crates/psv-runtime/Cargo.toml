@@ -10,9 +10,15 @@ publish = false
 [workspace]
 
 [dependencies]
+thiserror = "2"
 psv-pack = { path = "../psv-pack" }
+psv-render = { path = "../psv-render" }
 horizon-core = { git = "https://github.com/ludovic111/horizon", rev = "02c8607ee8ebd216f2f535c1eb7b62b572830df2" }
 horizon-world = { git = "https://github.com/ludovic111/horizon", rev = "02c8607ee8ebd216f2f535c1eb7b62b572830df2" }
+
+[features]
+# The Vita graphics demo. It needs vitaGL installed in the SDK; see docs/BUILDING-PSV.md.
+gfx = []
 
 [package.metadata.vita]
 title_id = "MCJVPSV01"

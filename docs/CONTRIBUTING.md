@@ -30,6 +30,8 @@ bash scripts/check-public-tree.sh
 ```
 
 Run them before you open a pull request. The Vita crate is separate: see [BUILDING-PSV](BUILDING-PSV.md).
+In `crates/psv-runtime`, run `cargo clippy --all-targets -- -D warnings` and `cargo test`, and again
+with `--features gfx` for the graphics code.
 
 ## Making a change
 
@@ -56,6 +58,12 @@ Run them before you open a pull request. The Vita crate is separate: see [BUILDI
 reader misread a new file, bump `VERSION` there, keep readers refusing newer versions, add a test
 for the new layout, and update [ARCHITECTURE](ARCHITECTURE.md#the-baked-data-format). A format that
 two independent readers can follow from the description alone is the goal.
+
+## Tests and game data
+
+Tests must not use Minecraft files. Build the small textures and models a test needs inside the
+test, as the renderer's tests do. Checking code against the real game's data is useful, and you
+should do it on your own machine, but only report counts and results, never the data.
 
 ## Performance work
 

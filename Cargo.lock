@@ -2922,6 +2922,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "psv-render"
+version = "0.1.0"
+dependencies = [
+ "psv-pack",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "psv-setup"
 version = "0.1.0"
 dependencies = [

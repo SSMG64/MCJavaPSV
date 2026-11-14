@@ -59,6 +59,28 @@ explains every line. CI also publishes the finished package as the `probe-vpk` a
 The probe's logic lives in `crates/psv-runtime/src/probe.rs` and runs on the host too:
 `cargo test` in that folder checks the report format and the recorded noise checksum.
 
+## The graphics demo
+
+The `gfx` feature adds a flying camera demo drawn through vitaGL. It needs vitaGL and the
+libraries it uses in the SDK:
+
+```
+vdpm install zlib libzip taihen vitaShaRK libmathneon vitaGL SceShaccCgExt
+cd crates/psv-runtime
+cargo vita build eboot -- --release --features gfx
+```
+
+`build.rs` links the libraries listed in it, in order. If your SDK names them differently, set
+`PSV_GFX_LIBS` to a space separated list. The console needs `libshacccg.suprx`, which you extract
+from your own console. Without it the demo closes right after `vitaGL: starting`.
+
+On a PC, `cargo check --features gfx` and `cargo clippy --all-targets --features gfx` check the
+whole thing without linking. CI builds this in a separate job that may fail without failing the
+build, because it has never run on a runner.
+
+To see the real art, copy the graphics `eboot.bin` into the app's `payload` folder and build a
+full package with `mcjavapsv-cli build`. The demo then reads `app0:data/data.pak`.
+
 ## Faster iteration
 
 With `vitacompanion` installed on the Vita, `cargo vita build eboot --update --run -- --release`

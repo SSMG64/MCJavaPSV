@@ -67,8 +67,21 @@ source. Parity checks against vanilla stay on your machine. See [CONTRIBUTING](C
 | Horizon | MIT |
 | VitaSDK and its libraries | Several licenses, including GPL for parts of the toolchain. The Windows app does not bundle VitaSDK |
 | `cargo-vita` | MIT or Apache-2.0 |
+| vitaGL | LGPL v3. Only in the graphics demo build |
 
 A generated list of third-party licenses for releases is planned and not done yet.
+
+## vitaGL
+
+The graphics demo build links [vitaGL](https://github.com/Rinnegatamante/vitaGL), which is under
+the GNU Lesser General Public License, version 3. Linking it into this MIT project is allowed. If
+you distribute the graphics build, ship vitaGL's license text and a way to get its source, and let
+recipients relink with a modified vitaGL. The source here builds the executable, which covers the
+last condition. The default build does not include vitaGL.
+
+The demo needs `libshacccg.suprx` on the console. You extract it from your own console. This
+project does not provide it, and whether extracting it is allowed where you live is your
+responsibility.
 
 ## The Vita
 

@@ -110,6 +110,35 @@ it got. Close a hung app with the PS button and keep the file.
 If the app closes at once and no `probe.txt` appears, the Vita probably could not grant the memory
 the probe asks for. Say so when you report it.
 
+## Try the graphics demo
+
+This is an experiment: **it has never run on a Vita.** It flies a camera over generated terrain,
+and needs no game files.
+
+You need `libshacccg.suprx` on your console. It is the console's shader compiler module, which you
+extract from your own console. This project cannot provide it.
+
+1. Download the `probe-vpk-gfx` artifact from a successful run of the **Build** workflow. It holds
+   `MCJavaPSV-graphics-demo.vpk`.
+2. Install it with VitaShell and start it. The probe runs first, then the demo.
+3. Fly with the controls below. Press START to leave.
+4. Read `ux0:data/MCJavaPSV/gfx.txt`, and send it with `probe.txt` if something went wrong.
+
+| Control | Does |
+| --- | --- |
+| Left stick | Walk forward, back and sideways |
+| Right stick | Look around |
+| R and L buttons | Fly up and down |
+| Cross | Sprint |
+| START | Leave |
+
+| Line in `gfx.txt` | Meaning |
+| --- | --- |
+| `world: ...` | Where the art came from: `data.pak`, or generated placeholder art |
+| `vitaGL: starting` | If the app closes after this line, `libshacccg.suprx` is probably missing |
+| `first frame: X of Y sections drawn` | The first picture was drawn |
+| `frame N: X ms average` | Speed, reported every 120 frames. This is the number we want |
+
 ## Where files go
 
 | What | Where (Windows) |

@@ -36,9 +36,10 @@ All game data reaches the Vita as files the builder derives from your own instal
 | `psv-vpk` | host | Writes `PARAM.SFO` and the VPK ZIP, and generates the project's own icon and generic LiveArea art. The SFO output is identical to VitaSDK's `vita-mksfoex`, checked against files made by the real tool. ZIP output is deterministic. |
 | `psv-pack` | host and Vita | The data container and the lossless texture format, shared by the baker and the Vita runtime so both read one definition. LZ4 through `lz4_flex`, the same crate Horizon uses. |
 | `psv-bake` | host | Reads a prepared folder (or a jar) and writes the data pack: PNGs to texture blobs, unusable files skipped, everything else stored or compressed. |
+| `psv-render` | host and Vita | The renderer without the GPU: texture atlas, block model and blockstate parsing, quad baking, chunk meshing, the camera, a `Backend` trait with a scene `Renderer` above it, and a software rasterizer used by the tests. |
 | `psv-setup` | host | Finds the Minecraft folder, reads the version file, verifies jar hashes, finds Java, and runs Horizon's `horizon-prepare` while streaming its JSON progress. |
 | `psv-builder` | host (Windows first) | The `mcjavapsv` window and the `mcjavapsv-cli` tool. Owns logging, the in-app console, settings and diagnostics. |
-| `psv-runtime` | Vita | The Vita executable. Built outside the main workspace with nightly Rust and VitaSDK. Today it is a probe that runs Horizon's logic and measures memory, speed, threads, storage and floating point behavior. |
+| `psv-runtime` | Vita | The Vita executable. Built outside the main workspace with nightly Rust and VitaSDK. It runs the hardware probe, and with the `gfx` feature a flying camera demo drawn through vitaGL. |
 
 ## The build pipeline
 
@@ -93,6 +94,80 @@ checked with Rust's `png` crate over every texture, and with a second reader wri
 from this description and compared with Pillow on 400 random textures. Baked textures take more
 room than PNGs, which is the price of skipping the inflate step on a slow CPU. The real prepared
 folder will also hold sounds, fonts and Horizon's prepared files, so the real pack will be bigger.
+
+## The renderer
+
+`psv-render` turns data into things a GPU can draw, and does none of the drawing. The same code
+runs on a PC in the tests and will run on the Vita.
+
+1. **Atlas.** Baked textures are packed into one image with a pixel of edge padding, in the
+   smallest power of two size, preferring a squarer shape. A strip of animation frames uses its
+   first frame for now.
+2. **Models.** Block model JSON is parsed, parents are followed, and texture slots are resolved,
+   including the 26.x object form that can force a texture to be drawn translucent.
+3. **Blockstates.** Variants, weighted lists and multipart conditions choose which models a block
+   with given properties uses, with the game's turn conventions: x then y, each the negative way.
+4. **Quads.** Each model face becomes a quad with corners, atlas coordinates, a shade direction, a
+   cull face and a layer (solid, cutout or translucent). Element rotation with rescale, texture
+   rotation and `uvlock` follow the game's rules. `uvlock` is checked by an invariant: a cube
+   turned any of 16 ways with uvlock carries the same texture coordinates on the same corners.
+5. **Meshing.** A region of blocks becomes vertex and index buffers per layer. Faces hidden by a
+   neighbour that fully covers them are dropped, and so are the faces between two identical
+   translucent blocks. Each face is lit by its direction (top 1.0, sides 0.8 and 0.6, bottom 0.5)
+   and by a tint. Batches stop below 65,536 vertices because the GPU takes 16 bit indices.
+6. **Camera.** First person angles with the game's compass, OpenGL style matrices, flying movement
+   and a view frustum test.
+
+Verified on the 26.3 data, taken from an unpacked copy of the game: all 1,288 blockstates and all
+2,603 models they reference load, and all 10,290 block variants bake fully textured into 106,081
+quads. 4,106 variants use `uvlock`. The 1,300 block textures fit one 512 by 1024 atlas of 2.0 MiB.
+Checking against real data found two things the first version missed: texture slots can be
+objects, and a face may name a slot without a `#`.
+
+The tests use small textures and models written for them, and a CPU rasterizer checks what a mesh
+looks like: each side of a block from outside with its own shade, textures upright and unmirrored on
+every side, rotation, culling, tint, cutout and blending, and clipping at the near plane.
+
+**Not done yet:** the GPU layer, lighting and ambient occlusion, animated textures, biome colors,
+and models drawn by special code (chests, signs, items).
+
+### The GPU layer
+
+The renderer reaches a GPU through the `Backend` trait in `psv-render::gpu`: upload an atlas,
+upload a mesh, begin a frame, draw one layer of a mesh with a matrix, end the frame. A `Renderer`
+sits above it and decides what to draw. It keeps the uploaded sections, skips those outside the
+view frustum, draws the solid layer, then cutout, then translucent sections from the farthest to
+the nearest. A `SoftwareBackend` runs the same code on a CPU, so the flying camera loop is tested
+without a GPU.
+
+**Decision: vitaGL.** It was chosen for feasibility, not for speed.
+
+| Route | For | Against |
+| --- | --- | --- |
+| vitaGL (chosen) | OpenGL style API with a fixed function pipeline, so no shaders to write at first. Widely used by Vita ports. | LGPL v3. Needs `libshacccg.suprx` on the console. Not in the SDK release, so CI installs it with `vdpm`. |
+| Raw GXM | No extra library, and the most control. | The GPU shaders must be compiled by a Sony tool that is not available, or on the console by the same `libshacccg.suprx` module vitaGL needs. So it would not remove that requirement, and it adds a lot of GPU setup code to write without hardware to test on. |
+| vita2d | Simple. | 2D only. |
+
+Raw GXM has a real performance ceiling advantage, but it is unmeasured here. The `Backend` seam
+keeps it possible: measure on hardware first, and if vitaGL's CPU overhead turns out to be the
+bottleneck, a second backend can replace it without touching the renderer.
+
+vitaGL's license is the Lesser GPL, version 3. Linking it into an MIT project is allowed. The
+conditions are to ship its license text and a way to get its source, and to let a user relink the
+program with a modified library, which the open source build here already allows. See
+[LEGAL](LEGAL.md#vitagl). The user supplies `libshacccg.suprx` from their own console. This
+project cannot ship it.
+
+**What exists.** In `crates/psv-runtime`, behind the `gfx` feature: the vitaGL backend, a demo
+loop, and the controls. The world is terrain from Horizon's own Perlin noise, built from
+`data.pak` when there is one and from generated placeholder art when there is not, so the
+graphics can be tried with no game files. The demo writes `gfx.txt` to the memory card after every
+step, with frame timing, so a crash still shows how far it got.
+
+**What is verified.** The controls, the scene, the mesh packing and everything above the backend
+are tested on a PC, and the backend type-checks and passes clippy. On real 26.3 data the scene
+builds with 7 textures, a 64 by 64 atlas and about 18,000 quads. **Never linked or run on a Vita.**
+The list of libraries it links is a best guess taken from vitaGL's own samples.
 
 ## Where Horizon fits
 
@@ -160,7 +235,7 @@ Phases are tentative and each ends with something that can be checked.
 | 0 | Repository, CI, builder with checks, console and preparer driver, VPK writer, Vita probe | in this change |
 | 1 | CI builds the Vita probe with Horizon's logic and it runs on hardware; first memory and speed numbers | in progress: CI builds it and packages a probe VPK, waiting for hardware results |
 | 2 | Bake stage and a data format sized for the Vita | done: `bake` and `build` work and the format is verified. Not yet run on a real prepared folder |
-| 3 | Vita renderer: textures, chunk meshes, a flying camera | planned |
+| 3 | Vita renderer: textures, chunk meshes, a flying camera | 3a done and verified on a PC. 3b, the vitaGL backend and a flying camera demo, is written and type-checked but has never been linked or run on a Vita |
 | 4 | World: chunk load and generation, player physics, parity traces against vanilla | planned |
 | 5 | Gameplay: items, crafting, mobs, audio, input and menus | planned |
 | 6 | Multiplayer over the network, if memory and CPU allow | investigate |

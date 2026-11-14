@@ -59,6 +59,9 @@ enum Cmd {
         /// Folder for the package (default: the saved output folder, else the current folder)
         #[arg(long)]
         output_dir: Option<PathBuf>,
+        /// The Vita executable to package (default: the bundled one)
+        #[arg(long)]
+        eboot: Option<PathBuf>,
     },
     /// Print the detected setup and system details
     Env(Sources),
@@ -130,12 +133,15 @@ fn main() -> ExitCode {
                 }
             }
         }
-        Cmd::PackProbe { output_dir } => {
+        Cmd::PackProbe { output_dir, eboot } => {
             let saved = Settings::load(&paths.settings_file());
             let output_dir = output_dir
                 .or(saved.output_dir)
                 .unwrap_or_else(|| PathBuf::from("."));
-            match psv_builder::pack::build_probe_vpk(&payload.eboot(), &output_dir) {
+            match psv_builder::pack::build_probe_vpk(
+                &eboot.unwrap_or_else(|| payload.eboot()),
+                &output_dir,
+            ) {
                 Ok(path) => {
                     println!("{}", path.display());
                     ExitCode::SUCCESS
