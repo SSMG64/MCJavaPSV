@@ -98,6 +98,8 @@ jobs:
           echo "$VITASDK/bin" >> "$GITHUB_PATH"
 
       - name: Install vitaGL and what it links against
+        env:
+          VDPM_NONINTERACTIVE: "1"
         run: vdpm install zlib libzip taihen vitaShaRK libmathneon vitaGL SceShaccCgExt
 
       - name: Install nightly Rust and cargo-vita

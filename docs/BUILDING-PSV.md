@@ -70,6 +70,8 @@ cd crates/psv-runtime
 cargo vita build eboot -- --release --features gfx
 ```
 
+In a script or in CI, set `VDPM_NONINTERACTIVE=1` so `vdpm install` does not stop to ask for confirmation.
+
 `build.rs` links the libraries listed in it, in order. If your SDK names them differently, set
 `PSV_GFX_LIBS` to a space separated list. The console needs `libshacccg.suprx`, which you extract
 from your own console. Without it the demo closes right after `vitaGL: starting`.
